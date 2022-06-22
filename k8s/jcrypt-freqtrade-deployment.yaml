@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freqtrade
+  namespace: jcrypt
+  labels:
+    app: freqtrade
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: freqtrade
+  template:
+    metadata:
+      labels:
+        app: freqtrade
+    spec:
+      # TODO: Here we will retrive config in github repo
+      initContainers:
+      - name: freqtrade-init
+        image: freqtradeorg/freqtrade:stable
+        command: ["/bin/sh"]
+        args: ["-c", "freqtrade create-userdir --userdir /freqtrade/user_data && freqtrade new-config --config /freqtrade/user_data/config.json"]
+        volumeMounts:
+        - name: userdata-vol
+          mountPath: "/freqtrade/user_data"
+      containers:
+      - name: freqtrade
+        image: freqtradeorg/freqtrade:stable
+        volumeMounts:
+        - name: userdata-vol
+          mountPath: "/freqtrade/user_data"
+        command: ["freqtrade"]
+        args: ["trade", "--logfile", "/freqtrade/user_data/logs/freqtrade.log",
+          "--db-url", "sqlite:////freqtrade/user_data/tradesv3.sqlite",
+          "--config", "/freqtrade/user_data/config.json",
+          "--strategy", "SampleStrategy"]
+      volumes:
+      - name: userdata-vol
+        persistentVolumeClaim:
+          claimName: freqtrade-nfs-pvc
